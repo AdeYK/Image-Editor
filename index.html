@@ -49,20 +49,50 @@
             <p id="placeholder-text" class="text-gray-400 text-xl font-medium">Your image will appear here</p>
         </div>
 
-        <!-- Editing Tools -->
-        <div id="editing-tools" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8 hidden">
-            <!-- Filter buttons -->
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="grayscale">Grayscale</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="sepia">Sepia</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="invert">Invert</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="blur">Blur</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="contrast">Contrast</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors" data-filter="brightness">Brightness</button>
-            <button class="filter-btn bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors col-span-2 md:col-span-1" data-filter="original">Original</button>
+        <!-- Editing Tools with Sliders -->
+        <div id="editing-tools" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 hidden">
+            <!-- Grayscale Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="grayscale-slider" class="font-semibold text-gray-700">Grayscale: <span id="grayscale-value">0%</span></label>
+                <input type="range" id="grayscale-slider" min="0" max="100" value="0" class="w-full">
+            </div>
+
+            <!-- Sepia Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="sepia-slider" class="font-semibold text-gray-700">Sepia: <span id="sepia-value">0%</span></label>
+                <input type="range" id="sepia-slider" min="0" max="100" value="0" class="w-full">
+            </div>
+
+            <!-- Invert Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="invert-slider" class="font-semibold text-gray-700">Invert: <span id="invert-value">0%</span></label>
+                <input type="range" id="invert-slider" min="0" max="100" value="0" class="w-full">
+            </div>
+
+            <!-- Blur Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="blur-slider" class="font-semibold text-gray-700">Blur: <span id="blur-value">0px</span></label>
+                <input type="range" id="blur-slider" min="0" max="20" value="0" class="w-full">
+            </div>
+
+            <!-- Contrast Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="contrast-slider" class="font-semibold text-gray-700">Contrast: <span id="contrast-value">100%</span></label>
+                <input type="range" id="contrast-slider" min="0" max="200" value="100" class="w-full">
+            </div>
+
+            <!-- Brightness Slider -->
+            <div class="flex flex-col gap-2">
+                <label for="brightness-slider" class="font-semibold text-gray-700">Brightness: <span id="brightness-value">100%</span></label>
+                <input type="range" id="brightness-slider" min="0" max="200" value="100" class="w-full">
+            </div>
         </div>
 
-        <!-- Download Section -->
+        <!-- Action Buttons -->
         <div id="download-section" class="flex flex-col md:flex-row gap-4 hidden">
+            <button id="reset-btn" class="bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg hover:bg-gray-500 transition-colors shadow-md flex-1">
+                Reset Filters
+            </button>
             <button id="download-btn" class="bg-emerald-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-emerald-600 transition-colors shadow-md flex-1">
                 Download Edited Image
             </button>
@@ -78,9 +108,20 @@
             const editingTools = document.getElementById('editing-tools');
             const downloadSection = document.getElementById('download-section');
             const downloadBtn = document.getElementById('download-btn');
+            const resetBtn = document.getElementById('reset-btn');
             const fileNameDisplay = document.getElementById('file-name');
             const ctx = editorCanvas.getContext('2d');
             let originalImage = null;
+
+            // State to hold current filter values
+            const filters = {
+                grayscale: 0,
+                sepia: 0,
+                invert: 0,
+                blur: 0,
+                contrast: 100,
+                brightness: 100,
+            };
 
             // Handle image upload
             imageUpload.addEventListener('change', (event) => {
@@ -95,9 +136,9 @@
                             // Set canvas dimensions to match the image
                             editorCanvas.width = img.naturalWidth;
                             editorCanvas.height = img.naturalHeight;
-                            // Draw the image on the canvas
-                            ctx.drawImage(originalImage, 0, 0);
-
+                            
+                            applyFilters(); // Apply initial filter settings
+                            
                             // Show the canvas and tools
                             editorCanvas.classList.remove('hidden');
                             placeholderText.classList.add('hidden');
@@ -109,33 +150,66 @@
                     reader.readAsDataURL(file);
                 }
             });
+            
+            // Function to apply all filters based on state
+            function applyFilters() {
+                if (!originalImage) return;
 
-            // Handle filter application
-            const filterButtons = document.querySelectorAll('.filter-btn');
-            filterButtons.forEach(button => {
-                button.addEventListener('click', (event) => {
-                    const filter = event.target.dataset.filter;
-                    if (originalImage) {
-                        ctx.filter = getFilterValue(filter);
-                        // Redraw the image with the new filter
-                        ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
-                        ctx.drawImage(originalImage, 0, 0);
-                    }
+                const filterString = `
+                    grayscale(${filters.grayscale}%)
+                    sepia(${filters.sepia}%)
+                    invert(${filters.invert}%)
+                    blur(${filters.blur}px)
+                    contrast(${filters.contrast}%)
+                    brightness(${filters.brightness}%)
+                `;
+                
+                ctx.filter = filterString;
+                ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+                ctx.drawImage(originalImage, 0, 0);
+            }
+
+            // Get all sliders and add event listeners
+            const sliders = document.querySelectorAll('input[type="range"]');
+            sliders.forEach(slider => {
+                slider.addEventListener('input', (event) => {
+                    const filterName = event.target.id.replace('-slider', '');
+                    const value = event.target.value;
+                    
+                    filters[filterName] = value;
+                    document.getElementById(`${filterName}-value`).textContent = filterName === 'blur' ? `${value}px` : `${value}%`;
+                    
+                    applyFilters();
                 });
             });
 
-            function getFilterValue(filter) {
-                switch (filter) {
-                    case 'grayscale': return 'grayscale(100%)';
-                    case 'sepia': return 'sepia(100%)';
-                    case 'invert': return 'invert(100%)';
-                    case 'blur': return 'blur(5px)';
-                    case 'contrast': return 'contrast(200%)';
-                    case 'brightness': return 'brightness(150%)';
-                    case 'original': return 'none';
-                    default: return 'none';
-                }
-            }
+            // Handle reset button
+            resetBtn.addEventListener('click', () => {
+                // Reset slider values and state
+                document.getElementById('grayscale-slider').value = 0;
+                document.getElementById('sepia-slider').value = 0;
+                document.getElementById('invert-slider').value = 0;
+                document.getElementById('blur-slider').value = 0;
+                document.getElementById('contrast-slider').value = 100;
+                document.getElementById('brightness-slider').value = 100;
+                
+                filters.grayscale = 0;
+                filters.sepia = 0;
+                filters.invert = 0;
+                filters.blur = 0;
+                filters.contrast = 100;
+                filters.brightness = 100;
+
+                // Update display values and re-apply filters
+                document.getElementById('grayscale-value').textContent = '0%';
+                document.getElementById('sepia-value').textContent = '0%';
+                document.getElementById('invert-value').textContent = '0%';
+                document.getElementById('blur-value').textContent = '0px';
+                document.getElementById('contrast-value').textContent = '100%';
+                document.getElementById('brightness-value').textContent = '100%';
+
+                applyFilters();
+            });
 
             // Handle image download
             downloadBtn.addEventListener('click', () => {
